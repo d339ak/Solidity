@@ -3,6 +3,7 @@
 // Set a minimum funding value in USD
 
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.18;
 
 import {PriceConvertor} from "PriceConvertor.sol";
@@ -13,7 +14,14 @@ contract FundMe {
     uint256 public minimumUsd = 5e18;
 
     address[] public funders;
+
     mapping(address funder => uint256 amountFunded) public addressToAmountFunded;
+
+    address public owner;
+
+    constructor () {
+        owner = msg.sender;
+    }
 
     function fund() public payable {
         //Allow users to send $
@@ -23,7 +31,7 @@ contract FundMe {
         addressToAmountFunded[msg.sender] += msg.value;
     }
 
-    function withdraw() public {
+    function withdraw() public onlyOwner {
         for (uint256 funderIndex = 0; funderIndex < funders.length; funderIndex++) {
             address funder = funders[funderIndex];
             addressToAmountFunded[funder] = 0;
@@ -38,8 +46,13 @@ contract FundMe {
         // send
         // bool sendSuccess = payable(msg.sender).send(address(this).balance);
         // require(sendSuccess, "Send failed");
-         // call
+         // call, is the recommended way.
         (bool callSuccess, ) = payable(msg.sender).call{value: address(this).balance}("");
         require(callSuccess, "Call failed");
+    }
+
+    modifier onlyOwner() {
+        require (msg.sender == owner, "Sender is not owner!");
+        _;
     }
 }
