@@ -7,25 +7,31 @@ pragma solidity ^0.8.18;
 
 import {PriceConvertor} from "PriceConvertor.sol";
 
+// 810,122
+// after constant keyword usage the new gas is 790,164
 contract FundMe {
     using PriceConvertor for uint256;
 
-    uint256 public minimumUsd = 5e18;
+    uint256 public constant MINIMUM_USD = 5e18;
+    // 307 gas - constant
+    // 2451 gas - not constant * 41000000 = 100,491,000,000 wei
 
     address[] public funders;
 
     mapping(address funder => uint256 amountFunded) public addressToAmountFunded;
 
-    address public owner;
+    address public immutable i_owner;
+    // 444 = immutable
+    // 2,580 = non immutable 
 
     constructor () {
-        owner = msg.sender;
+        i_owner = msg.sender;
     }
 
     function fund() public payable {
         //Allow users to send $
         //Have a minimum $ sent of $5
-        require (msg.value.getConversionRate() >= minimumUsd, "didnt send enough ether.");
+        require (msg.value.getConversionRate() >= MINIMUM_USD, "didnt send enough ether.");
         funders.push(msg.sender);
         addressToAmountFunded[msg.sender] += msg.value;
     }
@@ -51,7 +57,7 @@ contract FundMe {
     }
 
     modifier onlyOwner() {
-        require (msg.sender == owner, "Sender is not owner!");
+        require (msg.sender == i_owner, "Sender is not owner!");
         _;
     }
 }
