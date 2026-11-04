@@ -7,6 +7,8 @@ pragma solidity ^0.8.18;
 
 import {PriceConvertor} from "PriceConvertor.sol";
 
+error NotOwner();
+
 // 810,122
 // after constant keyword usage the new gas is 790,164
 contract FundMe {
@@ -57,7 +59,42 @@ contract FundMe {
     }
 
     modifier onlyOwner() {
-        require (msg.sender == i_owner, "Sender is not owner!");
+        //require (msg.sender == i_owner, "Sender is not owner!");
+        if (msg.sender != i_owner) {
+            revert NotOwner();
+        }
         _;
     }
+
+    // What happens is someone sends this contract ETH without calling the fund function
+    // receive()
+    // fallback()
+    receive() external payable {
+        fund();
+    }
+
+    fallback() external payable {
+        fund();
+    }
 }
+
+// Is msg.data empty?
+// ├─ No  → Does fallback() exist?
+// │        ├─ Yes → Call fallback()
+// │        └─ No  → Revert
+// └─ Yes → Does receive() exist?
+//          ├─ Yes → Call receive()
+//          └─ No  → Does fallback() exist?
+//                   ├─ Yes → Call fallback()
+//                   └─ No  → Revert
+
+
+
+// Also to do
+// 1. Enums
+// 2. Events
+// 3. Try / Catch
+// 4. Function Selectors
+// 5. abi.encode / decode
+// 6. Hashing
+// 7. Yul / Assembly
