@@ -278,7 +278,7 @@ contract SecureLending is ReentrancyGuard {
         emit Repaid(msg.sender, amount);
     }
 
-    /// @notice Allows anyone to liquidate an unhealthy borrower position
+    /// Allows anyone to liquidate an unhealthy borrower position
     /// @param borrower The address of the user whose position is undercollateralized
     /// @param repayAmount The amount of lending token the liquidator is paying back
     function liquidate(address borrower, uint256 repayAmount) external nonReentrant {
@@ -332,7 +332,7 @@ contract SecureLending is ReentrancyGuard {
         emit Liquidated(borrower, msg.sender, repayAmount, seizedCollateral);
     }
 
-    /// @notice Allows lenders to deposit lending tokens to provide liquidity for borrowers
+    /// Allows lenders to deposit lending tokens to provide liquidity for borrowers
     /// @param amount The amount of lending tokens to deposit
     function supply(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
@@ -347,7 +347,7 @@ contract SecureLending is ReentrancyGuard {
         emit Supplied(msg.sender, amount);
     }
 
-    /// @notice Allows lenders to withdraw their supplied tokens (plus any earnings if interest is implemented)
+    /// Allows lenders to withdraw their supplied tokens (plus any earnings if interest is implemented)
     /// @param amount The amount of lending tokens to withdraw
     function withdraw(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
