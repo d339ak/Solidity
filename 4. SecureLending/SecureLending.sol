@@ -34,9 +34,14 @@ contract SecureLending is ReentrancyGuard {
     uint256 public constant TARGET_DECIMALS = 18;
 
     // =========================================
+    // LIQUIDATION CONSTANTS
+    // =========================================
+    uint256 public constant LIQUIDATION_THRESHOLD = 8000; // 80% - Position can be liquidated if debt exceeds this
+    uint256 public constant LIQUIDATION_BONUS = 500;     // 5% bonus paid to liquidators (in basis points)
+
+    // =========================================
     // CUSTOM ERRORS
     // =========================================
-
     error InvalidFeedAddress();
     error InvalidPrice();
     error InvalidRound();
@@ -53,6 +58,10 @@ contract SecureLending is ReentrancyGuard {
     event Borrowed(address indexed user, uint256 amount);
     event Repaid(address indexed user, uint256 amount);
     event CollateralWithdrawn(address indexed user, uint256 amount);
+    // =========================================
+    // NEW EVENTS
+    // =========================================
+    event Liquidated(address indexed borrower, address indexed liquidator, uint256 repayAmount, uint256 collateralSeized);
 
     // =========================================
     // CONSTRUCTOR
@@ -261,5 +270,59 @@ contract SecureLending is ReentrancyGuard {
         lendingToken.safeTransferFrom(msg.sender, address(this), amount);
     
         emit Repaid(msg.sender, amount);
+    }
+
+    /// @notice Allows anyone to liquidate an unhealthy borrower position
+    /// @param borrower The address of the user whose position is undercollateralized
+    /// @param repayAmount The amount of lending token the liquidator is paying back
+    function liquidate(address borrower, uint256 repayAmount) external nonReentrant {
+        require(repayAmount > 0, "Amount must be greater than zero");
+        require(borrower != msg.sender, "Cannot liquidate yourself");
+        
+        uint256 debt = borrowedAmount[borrower];
+        require(debt > 0, "Borrower has no debt");
+        
+        // Cap the repayment amount to the borrower's total debt if it exceeds it
+        if (repayAmount > debt) {
+            repayAmount = debt; 
+        }
+
+        // 1. Get borrower's collateral and debt values (both in USD * 1e18)
+        uint256 collateralValue = getCollateralValue(borrower);
+        uint256 debtValue = debt * 1e18 / (10 ** IERC20Metadata(address(lendingToken)).decimals());
+
+        // 2. Check if position is undercollateralized based on the liquidation threshold
+        uint256 liquidationLimit = collateralValue * LIQUIDATION_THRESHOLD / PRECISION;
+        require(debtValue > liquidationLimit, "Position is healthy");
+
+        // 3. Calculate the USD value of the debt being repaid
+        uint256 repayValue = repayAmount * 1e18 / (10 ** IERC20Metadata(address(lendingToken)).decimals());
+        
+        // 4. Add the liquidation bonus to the seized value (repayValue + bonus)
+        uint256 seizedValue = repayValue * (PRECISION + LIQUIDATION_BONUS) / PRECISION;
+        
+        // 5. Convert the seized USD value back into collateral token amount
+        uint256 tokenDecimals = IERC20Metadata(address(collateralToken)).decimals();
+        uint256 seizedCollateral = seizedValue * (10 ** tokenDecimals) / getLatestPrice();
+
+        // Ensure we do not try to seize more collateral than the borrower actually deposited
+        uint256 totalCollateral = collateralDeposited[borrower];
+        if (seizedCollateral > totalCollateral) {
+            seizedCollateral = totalCollateral;
+        }
+
+        // 6. Update state variables
+        borrowedAmount[borrower] -= repayAmount;
+        collateralDeposited[borrower] -= seizedCollateral;
+
+        // 7. Execute token transfers
+        // Liquidator pays back the debt to the contract
+        lendingToken.safeTransferFrom(msg.sender, address(this), repayAmount);
+        
+        // Contract sends the seized collateral (plus bonus) to the liquidator
+        collateralToken.safeTransfer(msg.sender, seizedCollateral);
+
+        // 8. Emit liquidation event
+        emit Liquidated(borrower, msg.sender, repayAmount, seizedCollateral);
     }
 }
