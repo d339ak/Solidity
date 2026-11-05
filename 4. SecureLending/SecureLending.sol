@@ -138,7 +138,6 @@ contract SecureLending is ReentrancyGuard {
         // -------------------------------------
         // STEP 6: CHECK STALE PRICE
         // -------------------------------------
-
         if (block.timestamp - updatedAt > MAX_PRICE_AGE) {
             revert StalePrice();
         }
@@ -164,7 +163,6 @@ contract SecureLending is ReentrancyGuard {
         // -------------------------------------
         // STEP 9: NORMALISE PRICE
         // -------------------------------------
-
         uint256 price = uint256(answer);
 
         price = price * (10 ** (TARGET_DECIMALS - feedDecimals));
