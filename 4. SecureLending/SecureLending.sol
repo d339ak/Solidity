@@ -16,7 +16,6 @@ contract SecureLending is ReentrancyGuard {
     // =========================================
     // STATE VARIABLES
     // =========================================
-
     IERC20 public collateralToken;
     IERC20 public lendingToken;
     
@@ -75,7 +74,6 @@ contract SecureLending is ReentrancyGuard {
     // =========================================
     // CONSTRUCTOR
     // =========================================
-
     constructor(address _priceFeed, address _collateralToken, address _lendingToken) {
         if (_priceFeed == address(0)) {
             revert InvalidFeedAddress();
@@ -98,7 +96,6 @@ contract SecureLending is ReentrancyGuard {
     // =========================================
     // GET LATEST CHAINLINK PRICE
     // =========================================
-
     function getLatestPrice() public view returns (uint256)
     {
         // -------------------------------------
