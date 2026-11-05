@@ -320,6 +320,7 @@ contract SecureLending is ReentrancyGuard {
         emit PoolInterestAccrued(liquidityIndex, block.timestamp);
     }
 
+    // the parmater is taking the amount of usdt * 1e6
     function _convertToShares(uint256 amount) internal view returns (uint256) {
         if (totalShares == 0 || liquidityIndex == 0) {
             return amount; // 1:1 ratio for initial deposit
