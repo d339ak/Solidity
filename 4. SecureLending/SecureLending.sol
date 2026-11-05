@@ -12,37 +12,38 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 contract SecureLending is ReentrancyGuard {
 
     using SafeERC20 for IERC20;
-
     // =========================================
-    // STATE VARIABLES
+    // TOKENS & CONSTANTS
     // =========================================
-    IERC20 public collateralToken;
-    IERC20 public lendingToken;
-    
-    mapping(address => uint256) public collateralDeposited;
-    mapping(address => uint256) public borrowedAmount;
-
-    //MAX_LTV = 7500 means users can borrow up to 75% of their collateral's USD value.
-    uint256 public constant MAX_LTV = 7500;
-    uint256 public constant PRECISION = 10000;
-
-    AggregatorV3Interface public priceFeed;
+    IERC20 public immutable collateralToken;     // e.g., WETH
+    IERC20 public immutable lendingToken;        // e.g., USDT / USDC
 
     uint256 public constant MAX_PRICE_AGE = 1 hours;
-
     uint256 public constant TARGET_DECIMALS = 18;
-
+    uint256 public constant MAX_LTV = 7500;        //MAX_LTV = 7500 means users can borrow up to 75% of their collateral's USD value.
+    uint256 public constant PRECISION = 10000;    
     // =========================================
     // LIQUIDATION CONSTANTS
     // =========================================
     uint256 public constant LIQUIDATION_THRESHOLD = 8000; // 80% - Position can be liquidated if debt exceeds this
     uint256 public constant LIQUIDATION_BONUS = 500;     // 5% bonus paid to liquidators (in basis points)
 
+    uint256 public constant BORROW_INTEREST_RATE_BPS = 500;  // 5% Annual interest rate (in basis points)
+    uint256 public constant SECONDS_PER_YEAR = 365 days;
+
+    // =========================================
+    // STATE VARIABLES
+    // =========================================
+    mapping(address => uint256) public collateralDeposited;
+    mapping(address => uint256) public borrowedAmount;
     // =========================================
     // LENDER / LIQUIDITY POOL STATE
     // =========================================
     mapping(address => uint256) public supplierBalances;
     uint256 public totalLiquidity;
+    mapping(address => uint256) public lastInterestUpdate;
+
+    AggregatorV3Interface public priceFeed;
 
     // =========================================
     // CUSTOM ERRORS
@@ -60,14 +61,10 @@ contract SecureLending is ReentrancyGuard {
     // EVENTS
     // =========================================
     event CollateralDeposited(address indexed user, uint256 amount);
+    event CollateralWithdrawn(address indexed user, uint256 amount);
     event Borrowed(address indexed user, uint256 amount);
     event Repaid(address indexed user, uint256 amount);
-    event CollateralWithdrawn(address indexed user, uint256 amount);
-    // =========================================
-    // NEW EVENTS
-    // =========================================
     event Liquidated(address indexed borrower, address indexed liquidator, uint256 repayAmount, uint256 collateralSeized);
-
     event Supplied(address indexed supplier, uint256 amount);
     event Withdrawn(address indexed supplier, uint256 amount);
 
@@ -90,9 +87,11 @@ contract SecureLending is ReentrancyGuard {
 
         require(IERC20Metadata(_collateralToken).decimals() <= 18, "Unsupported collateral decimals");
 
-        require(IERC20Metadata(_lendingToken).decimals() <= 18, "Unsupported lending decimals");
+        require(IERC20Metadata(_lendingToken).decimals() <= 6, "Unsupported lending decimals");
     }
 
+    // =========================================
+    // ORACLE / PRICE HELPERS 
     // =========================================
     // GET LATEST CHAINLINK PRICE
     // =========================================
@@ -175,6 +174,22 @@ contract SecureLending is ReentrancyGuard {
         return price;
     }
 
+    function getCollateralValue(address user) public view returns (uint256) {
+        return getCollateralValueForAmount(collateralDeposited[user]);
+    }
+
+    // this function takes in the amount which is in weth * 1e18 and returns usd * 1e18
+    function getCollateralValueForAmount(uint256 amount) public view returns (uint256) {
+        uint256 price = getLatestPrice();
+    
+        uint256 tokenDecimals = IERC20Metadata(address(collateralToken)).decimals();
+    
+        return amount * price / (10 ** tokenDecimals);
+    }
+
+    // =========================================
+    // BORROWER FUNCTIONS
+    // =========================================
     // for 1 usdc, amount's value will be 1000,000 (as usdc has 6 decimals)
     function depositCollateral(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
@@ -192,23 +207,13 @@ contract SecureLending is ReentrancyGuard {
         emit CollateralDeposited(msg.sender, received);
     }
 
-    function getCollateralValue(address user) public view returns (uint256) {
-        return getCollateralValueForAmount(collateralDeposited[user]);
-    }
-
-    // this function takes in the amount which is in weth * 1e18 and returns usd * 1e18
-    function getCollateralValueForAmount(uint256 amount) public view returns (uint256) {
-        uint256 price = getLatestPrice();
-    
-        uint256 tokenDecimals = IERC20Metadata(address(collateralToken)).decimals();
-    
-        return amount * price / (10 ** tokenDecimals);
-    }
-
     //this function takes in the amount which is in usdt * 1e6
     function borrow(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
-    
+
+        // Accrue existing interest first
+        _accrueInterest(msg.sender);
+
         //this value is in usd * 1e18
         uint256 collateralValue = getCollateralValue(msg.sender);
 
@@ -268,9 +273,17 @@ contract SecureLending is ReentrancyGuard {
     //the amount paramater is in usdt * 1e6
     function repay(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
-    
-        require(amount <= borrowedAmount[msg.sender], "Repayment exceeds debt");
-    
+
+        // Accrue existing interest
+        _accrueInterest(msg.sender);
+
+        uint256 debt = borrowedAmount[msg.sender];
+        require(debt > 0, "No debt to repay");
+
+        if (amount > debt) {
+            amount = debt;
+        }
+
         borrowedAmount[msg.sender] -= amount;
     
         lendingToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -278,13 +291,19 @@ contract SecureLending is ReentrancyGuard {
         emit Repaid(msg.sender, amount);
     }
 
+    // =========================================
+    // LIQUIDATION FUNCTION
+    // =========================================
     /// Allows anyone to liquidate an unhealthy borrower position
     /// @param borrower The address of the user whose position is undercollateralized
     /// @param repayAmount The amount of lending token the liquidator is paying back
     function liquidate(address borrower, uint256 repayAmount) external nonReentrant {
         require(repayAmount > 0, "Amount must be greater than zero");
         require(borrower != msg.sender, "Cannot liquidate yourself");
-        
+
+        // Accrue interest to make sure health check is accurate
+        _accrueInterest(borrower);
+
         uint256 debt = borrowedAmount[borrower];
         require(debt > 0, "Borrower has no debt");
         
@@ -332,6 +351,9 @@ contract SecureLending is ReentrancyGuard {
         emit Liquidated(borrower, msg.sender, repayAmount, seizedCollateral);
     }
 
+    // =========================================
+    // LENDER FUNCTIONS (Liquidity Pool)
+    // =========================================
     /// Allows lenders to deposit lending tokens to provide liquidity for borrowers
     /// @param amount The amount of lending tokens to deposit
     function supply(uint256 amount) external nonReentrant {
@@ -366,5 +388,35 @@ contract SecureLending is ReentrancyGuard {
         lendingToken.safeTransfer(msg.sender, amount);
 
         emit Withdrawn(msg.sender, amount);
+    }
+
+    // =========================================
+    // INTERNAL: INTEREST ACCRUAL
+    // =========================================
+    function _accrueInterest(address borrower) internal {
+        //principal will be in usdt * 1e6
+        uint256 principal = borrowedAmount[borrower];
+
+        if (principal == 0) {
+            lastInterestUpdate[borrower] = block.timestamp;
+            return;
+        }
+
+        uint256 lastUpdate = lastInterestUpdate[borrower];
+        if (lastUpdate == 0) {
+            lastInterestUpdate[borrower] = block.timestamp;
+            return;
+        }
+
+        uint256 timeElapsed = block.timestamp - lastUpdate;
+        if (timeElapsed == 0) return;
+
+        // Interest = principal * rate * timeElapsed / (SECONDS_PER_YEAR * 10000)
+        // interest will be in usdt * 1e6
+        uint256 interest = (principal * BORROW_INTEREST_RATE_BPS * timeElapsed) / (SECONDS_PER_YEAR * 10000);
+
+        //borrowedAmount[borrower] will be in usdt * 1e6
+        borrowedAmount[borrower] += interest;
+        lastInterestUpdate[borrower] = block.timestamp;
     }
 }
