@@ -160,6 +160,7 @@ contract SecureLending is ReentrancyGuard {
         return price;
     }
 
+    // for 1 usdc, amount's value will be 1000,000 (as usdc has 6 decimals)
     function depositCollateral(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
     
