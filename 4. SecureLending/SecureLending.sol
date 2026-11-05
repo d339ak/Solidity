@@ -295,7 +295,7 @@ contract SecureLending is ReentrancyGuard {
     // =========================================
     /// Allows anyone to liquidate an unhealthy borrower position
     /// @param borrower The address of the user whose position is undercollateralized
-    /// @param repayAmount The amount of lending token the liquidator is paying back
+    /// @param repayAmount The amount of lending token the liquidator is paying back, the unit is in usdt * 1e6
     function liquidate(address borrower, uint256 repayAmount) external nonReentrant {
         require(repayAmount > 0, "Amount must be greater than zero");
         require(borrower != msg.sender, "Cannot liquidate yourself");
@@ -319,13 +319,13 @@ contract SecureLending is ReentrancyGuard {
         uint256 liquidationLimit = collateralValue * LIQUIDATION_THRESHOLD / PRECISION;
         require(debtValue > liquidationLimit, "Position is healthy");
 
-        // 3. Calculate the USD value of the debt being repaid
+        // 3. Calculate the USD value of the debt being repaid, the unit will be usd * 1e18
         uint256 repayValue = repayAmount * 1e18 / (10 ** IERC20Metadata(address(lendingToken)).decimals());
         
-        // 4. Add the liquidation bonus to the seized value (repayValue + bonus)
+        // 4. Add the liquidation bonus to the seized value (repayValue + bonus), this will be in usd * 1e18
         uint256 seizedValue = repayValue * (PRECISION + LIQUIDATION_BONUS) / PRECISION;
         
-        // 5. Convert the seized USD value back into collateral token amount
+        // 5. Convert the seized USD value back into collateral token amount, which will be in weth * 1e18
         uint256 tokenDecimals = IERC20Metadata(address(collateralToken)).decimals();
         uint256 seizedCollateral = seizedValue * (10 ** tokenDecimals) / getLatestPrice();
 
