@@ -332,7 +332,7 @@ contract SecureLending is ReentrancyGuard {
     }
 
     // Allows lenders to deposit lending tokens and receive proportional pool shares (provide liquidity for borrowers)
-    /// @param amount is most probably The amount of lending tokens to deposit
+    /// @param amount is The amount of lending tokens to deposit, the unit is usdt *1e6
     function supply(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
 
