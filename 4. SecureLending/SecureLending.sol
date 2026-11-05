@@ -40,6 +40,12 @@ contract SecureLending is ReentrancyGuard {
     uint256 public constant LIQUIDATION_BONUS = 500;     // 5% bonus paid to liquidators (in basis points)
 
     // =========================================
+    // LENDER / LIQUIDITY POOL STATE
+    // =========================================
+    mapping(address => uint256) public supplierBalances;
+    uint256 public totalLiquidity;
+
+    // =========================================
     // CUSTOM ERRORS
     // =========================================
     error InvalidFeedAddress();
@@ -62,6 +68,9 @@ contract SecureLending is ReentrancyGuard {
     // NEW EVENTS
     // =========================================
     event Liquidated(address indexed borrower, address indexed liquidator, uint256 repayAmount, uint256 collateralSeized);
+
+    event Supplied(address indexed supplier, uint256 amount);
+    event Withdrawn(address indexed supplier, uint256 amount);
 
     // =========================================
     // CONSTRUCTOR
@@ -324,5 +333,41 @@ contract SecureLending is ReentrancyGuard {
 
         // 8. Emit liquidation event
         emit Liquidated(borrower, msg.sender, repayAmount, seizedCollateral);
+    }
+
+    /// @notice Allows lenders to deposit lending tokens to provide liquidity for borrowers
+    /// @param amount The amount of lending tokens to deposit
+    function supply(uint256 amount) external nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+
+        // Update state
+        supplierBalances[msg.sender] += amount;
+        totalLiquidity += amount;
+
+        // Transfer lending tokens from lender to contract
+        lendingToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Supplied(msg.sender, amount);
+    }
+
+    /// @notice Allows lenders to withdraw their supplied tokens (plus any earnings if interest is implemented)
+    /// @param amount The amount of lending tokens to withdraw
+    function withdraw(uint256 amount) external nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+        require(supplierBalances[msg.sender] >= amount, "Insufficient supplied balance");
+
+        // Ensure the contract actually has enough available liquidity 
+        // (i.e., tokens not currently locked up as active borrows)
+        uint256 contractBalance = lendingToken.balanceOf(address(this));
+        require(contractBalance >= amount, "Not enough liquidity available in pool");
+
+        // Update state
+        supplierBalances[msg.sender] -= amount;
+        totalLiquidity -= amount;
+
+        // Transfer lending tokens back to the supplier
+        lendingToken.safeTransfer(msg.sender, amount);
+
+        emit Withdrawn(msg.sender, amount);
     }
 }
