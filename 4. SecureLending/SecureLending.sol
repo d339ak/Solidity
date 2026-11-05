@@ -181,6 +181,7 @@ contract SecureLending is ReentrancyGuard {
         return getCollateralValueForAmount(collateralDeposited[user]);
     }
 
+    // this function takes in the amount which is in weth * 1e18 and returns usd * 1e18
     function getCollateralValueForAmount(uint256 amount) public view returns (uint256) {
         uint256 price = getLatestPrice();
     
@@ -189,41 +190,55 @@ contract SecureLending is ReentrancyGuard {
         return amount * price / (10 ** tokenDecimals);
     }
 
+    //this function takes in the amount which is in usdt * 1e6
     function borrow(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
     
+        //this value is in usd * 1e18
         uint256 collateralValue = getCollateralValue(msg.sender);
-    
+
+        //this value is also in usd * 1e18
         uint256 maximumBorrow = collateralValue * MAX_LTV / PRECISION;
-    
+
+        //this value is in usdt * 1e6
         uint256 currentDebt = borrowedAmount[msg.sender];
-    
+
+        //this value in in usdt * 1e6
         uint256 newDebt = currentDebt + amount;
-    
+
+        //this value is now in usd + 1e18
         uint256 newDebtValue = newDebt * 1e18 / (10 ** IERC20Metadata(address(lendingToken)).decimals());
-    
+
         require(newDebtValue <= maximumBorrow,"Insufficient collateral");
-    
+
+        //this check is happening in, usdt * 1e6. But liquidity functionality is missing at the moment.
         require(lendingToken.balanceOf(address(this)) >= amount, "Insufficient lending liquidity" );
-    
+
+        //this value will be in usdt * 1e6
         borrowedAmount[msg.sender] = newDebt;
-    
+
+        //this will transfer the amount (which is in usdt * 1e6) to the sender.
         lendingToken.safeTransfer(msg.sender, amount);
     
         emit Borrowed(msg.sender, amount);
     }
 
+    //the amount paramater is in weth * 1e18
     function withdrawCollateral(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
     
         require(amount <= collateralDeposited[msg.sender], "Insufficient collateral");
     
         uint256 remainingCollateral = collateralDeposited[msg.sender] - amount;
-    
+
+        //this value will be in usd * 1e18
         uint256 remainingCollateralValue = getCollateralValueForAmount(remainingCollateral);
-    
+
+        //borrowedAmount[msg.sender] is in usdt * 1e6; 
+        //debtValue variable will hold now usd * 1e18
         uint256 debtValue = borrowedAmount[msg.sender] * 1e18 / (10 ** IERC20Metadata(address(lendingToken)).decimals());
-    
+
+        //this will be in usd * 1e18
         uint256 maximumBorrow = remainingCollateralValue * MAX_LTV / PRECISION;
     
         require(debtValue <= maximumBorrow, "Withdrawal would make position unsafe");
@@ -235,6 +250,7 @@ contract SecureLending is ReentrancyGuard {
         emit CollateralWithdrawn(msg.sender, amount);
     }
 
+    //the amount paramater is in usdt * 1e6
     function repay(uint256 amount) external nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
     
