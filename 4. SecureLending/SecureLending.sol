@@ -328,6 +328,7 @@ contract SecureLending is ReentrancyGuard {
         return (amount * 1e18) / liquidityIndex;
     }
 
+    // returns the usdt tokens * 1e6
     function _convertToUnderlying(uint256 shares) internal view returns (uint256) {
         return (shares * liquidityIndex) / 1e18;
     }
