@@ -11,21 +11,13 @@ interface AggregatorInterface {
 
   function latestAnswer() external view returns (int256);
 
-  function latestTimestamp() external view returns (
-      uint256
-    );
+  function latestTimestamp() external view returns (uint256);
 
-  function latestRound() external view returns (
-      uint256
-    );
+  function latestRound() external view returns (uint256);
 
-  function getAnswer(uint256 roundId) external view returns (
-      int256
-    );
+  function getAnswer(uint256 roundId) external view returns (int256);
 
-  function getTimestamp(uint256 roundId) external view returns (
-      uint256
-    );
+  function getTimestamp(uint256 roundId) external view returns (uint256);
 
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
   event NewRound(uint256 indexed roundId, address indexed startedBy, uint256 startedAt);
@@ -57,8 +49,7 @@ interface AggregatorV3Interface {
 pragma solidity ^0.6.0;
 
 
-interface AggregatorV2V3Interface is AggregatorInterface, AggregatorV3Interface
-{
+interface AggregatorV2V3Interface is AggregatorInterface, AggregatorV3Interface {
 }
 
 
@@ -279,8 +270,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
    * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
-  function latestRoundData() public view virtual override returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
-  {
+  function latestRoundData() public view virtual override returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)   {
     Phase memory current = currentPhase; // cache storage reads
 
     (roundId, answer, startedAt, updatedAt, answeredInRound ) = current.aggregator.latestRoundData();
@@ -420,6 +410,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
 pragma solidity >0.6.0 <0.8.0;
 
 interface AccessControllerInterface {
+
   function hasAccess(address user, bytes calldata data) external view returns (bool);
 }
 
