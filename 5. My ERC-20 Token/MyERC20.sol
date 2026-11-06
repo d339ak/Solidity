@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.7.0
 pragma solidity ^0.8.27;
+// MyERC20 ("My ERC-20 Token"/DPS) deployed at address 0x03cFfeb364538d3800ce52F867F004D28D28F7cF on Sepolia Ethereum Testnet.
+
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -25,8 +27,8 @@ contract MyERC20 is ERC20, Ownable, AccessControl {
     
 
     // Declaring the constructor for MyERC20 contract with 1 parameter. Then calling the constructor of each parent.
-    constructor(address initialOwner) ERC20("My Token", "DPS") Ownable(initialOwner) {
-        _grantRole("DEFAULT_ADMIN_ROLE", initialOwner);
+    constructor(address initialOwner) ERC20("My ERC-20 Token", "DPS") Ownable(initialOwner) {
+        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
