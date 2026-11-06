@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
-
 //https://github.com/smartcontractkit/libocr/blob/master/contract/AccessControlledOffchainAggregator.sol
 
 import "./OffchainAggregator.sol";
