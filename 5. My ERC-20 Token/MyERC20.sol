@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.7.0
 pragma solidity ^0.8.27;
-// MyERC20 ("My ERC-20 Token"/DPS) deployed at address 0x03cFfeb364538d3800ce52F867F004D28D28F7cF on Sepolia Ethereum Testnet.
-
+// MyERC20 ("My ERC-20 Token"/DPS) deployed at address 0x58621E527fB466Cbb446440E5c8d8735525996F1 on Sepolia Ethereum Testnet.
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Capped} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract MyERC20 is ERC20, ERC20Capped, Ownable, AccessControl {
+contract MyERC20 is ERC20, AccessControl {
+
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     // If inheriting from AccessControl smart contract from OpenZepplin, to implement a Minter role.
     // 1. Inherit the AccessControl contract above in your contract declaration.
@@ -28,15 +29,16 @@ contract MyERC20 is ERC20, ERC20Capped, Ownable, AccessControl {
     
 
     // Declaring the constructor for MyERC20 contract with 1 parameter. Then calling the constructor of each parent.
-    constructor(address initialOwner, uint256 maxTokenCap) ERC20("My ERC-20 Token", "DPS") ERC20Capped(maxTokenCap) Ownable(initialOwner) {
-        _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
-    }
+    constructor() ERC20("My ERC-20 Token", "DPS")  {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);        
+        }
 
-    function mint(address to, uint256 amount) public onlyOwner {
+    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
         _mint(to, amount);
     }
 
-    function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Capped) {
-        super._update(from, to, value);
-    }
+    //function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Capped) {
+    //    super._update(from, to, value);
+    //}
 }
