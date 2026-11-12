@@ -69,10 +69,8 @@ interface ILogAutomation {
 
 // File: contracts/log-trigger/LogTrigger.sol
 
-
 pragma solidity ^0.8.26;
 // Deployed on Testnet Sepolia: 0xE6195482385028309E83b23982d65f13830b9F8c
-
 
 contract LogTrigger is ILogAutomation {  
 
