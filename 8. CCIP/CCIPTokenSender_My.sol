@@ -2,6 +2,11 @@
 pragma solidity ^0.8.26;
 // Deployed on Sepolia Test Network: 0x9981A57E68742BAeDF28f08baf652cb907CdbA7E
 
+// Troubleshooting
+// CCIP zksync sepolia testnet
+//              -- Inbound OffRammp address (Ethereum sepolia):     0xC446d31f9aA1c0121E4762faf6D25eeBFa2264ba
+//              -- Token pool (contract address):                   0x979f90eC3444e7E6E8567EF26998C6328Ca637E2
+//              -- CCIP-Bnm token (contract address):               0xFf6d0c1518A8104611f482eb2801CaF4f13c9dEb
 
 import {IRouterClient} from "@chainlink/contracts@1.3.0/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts@1.3.0/src/v0.8/ccip/libraries/Client.sol";
