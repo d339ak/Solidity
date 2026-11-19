@@ -20,7 +20,8 @@ import {VRFV2PlusClient} from "@chainlink/contracts@1.3.0/src/v0.8/vrf/dev/libra
 
 contract HousePicker is VRFConsumerBaseV2Plus {
 
-    uint256 private constant ROLL_IN_PROGRESS = 5; // value out of range of houses
+    // uint256 private constant ROLL_IN_PROGRESS = 4; // value out of range of houses
+    uint256 private constant ROLL_IN_PROGRESS = 5; // value out of range of houses, FIXED.
 
     // Your subscription ID.
     uint256 public s_subscriptionId;
@@ -116,7 +117,8 @@ contract HousePicker is VRFConsumerBaseV2Plus {
      * @param randomWords  uint256[] The random result returned by the oracle.
      */
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
-        uint256 houseValue = (randomWords[0] % 4) + 1; // plus one since the range of % n = 0 - (n-1) 
+        // uint256 houseValue = (randomWords[0] % 4); // plus one since the range of % n = 0 - (n-1) 
+        uint256 houseValue = (randomWords[0] % 4) + 1; // plus one since the range of % n = 0 - (n-1) , FIXED.
 
         s_results[s_rollers[requestId]] = houseValue;
 
@@ -133,7 +135,8 @@ contract HousePicker is VRFConsumerBaseV2Plus {
 
         require(s_results[player] != ROLL_IN_PROGRESS, "Roll in progress");
 
-        return _getHouseName(s_results[player] - 1);
+        // return _getHouseName(s_results[player]);
+        return _getHouseName(s_results[player] - 1);    // FIXED.
     }
 
     /**
