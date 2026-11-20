@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19; // currently, it is required you use a compiler version of 0.8.19
 
+// Deployed on Sepolia: 0x27ee620a490DE9f88b5d775cb5eAEf818fcE04Cf
+
 // Common: Utilities for working with Chainlink Low Latency Oracle (LLO) feeds
 import {Common} from "@chainlink/contracts@1.3.0/src/v0.8/llo-feeds/libraries/Common.sol";
 // StreamsLookupCompatibleInterface: Interface for contracts that work with Streams Lookup
@@ -74,7 +76,7 @@ contract StreamsUpkeep is ILogAutomation, StreamsLookupCompatibleInterface {
         "0x000359843a543ee2fe414dc14c7e7920ef10f4372990b79d6361cdc0dd1ba782"
     ];
 
-    // Simulation offchain function.
+    // SIMULATION OFFCHAIN FUNCTION. This will get called, if the report is fetched then checkcallback is called else checkerrorhandler.
     // When Automation detects the event has been emitted, it runs the checkLog function implemented here. checkLog and will return a StreamsLookup custom error.
     // The checkLog function is the function called by Automation when it detects the event emission. 
     // The code example uses revert with the StreamsLookup custom error to convey all the information about what stream(s) to retrieve. 
@@ -93,22 +95,23 @@ contract StreamsUpkeep is ILogAutomation, StreamsLookupCompatibleInterface {
             );
     }
 
+    // SIMULATION OFFCHAIN FUNCTION.
     /**
      * @notice this is a new, optional function in streams lookup. It is meant to surface streams lookup errors.
      * @return upkeepNeeded boolean to indicate whether the keeper should call performUpkeep or not.
      * @return performData bytes that the keeper should call performUpkeep with, if
      * upkeep is needed. If you would like to encode data to decode later, try `abi.encode`.
      */
-    function checkErrorHandler(
-        uint256 /*errCode*/,
-        bytes memory /*extraData*/
-    ) external pure returns (bool upkeepNeeded, bytes memory performData) {
+    function checkErrorHandler(uint256 /*errCode*/, bytes memory /*extraData*/) external pure returns (bool upkeepNeeded, bytes memory performData) {
         return (true, "0");
-        // Hardcoded to always perform upkeep.
+        // Hardcoded to always perform upkeep. Only for this learning. In real return false.
         // Read the StreamsLookup error handler guide for more information.
         // https://docs.chain.link/chainlink-automation/guides/streams-lookup-error-handler
     }
 
+    // SIMULATION OFFCHAIN FUNCTION. Returns upkeepneeded true or false, and performdata is sent to perforupkeep.
+    // The following function is a callback function (which is simulated off-chain, hence why it is pure), so it can be modified to further process the report data. 
+    // The report and data are then passed into performUpkeep by Automation.
     // The Data Streams report bytes is passed here.
     // extraData is context data from stream lookup process.
     // Your contract may include logic to further process this data.
@@ -118,7 +121,8 @@ contract StreamsUpkeep is ILogAutomation, StreamsLookupCompatibleInterface {
         return (true, abi.encode(values, extraData));
     }
 
-    // function will be performed onchain
+    // function will be performed onchain.
+    // performUpkeep is the function that is executed on-chain by Automation. It contains the logic to process the data and record it on-chain
     function performUpkeep(bytes calldata performData) external {
         // Decode the performData bytes passed in by CL Automation.
         // This contains the data returned by your implementation in checkCallback().
@@ -138,9 +142,7 @@ contract StreamsUpkeep is ILogAutomation, StreamsLookupCompatibleInterface {
 
         // Report verification fees
         IFeeManager feeManager = IFeeManager(address(VERIFIER.s_feeManager()));
-        IRewardManager rewardManager = IRewardManager(
-            address(feeManager.i_rewardManager())
-        );
+        IRewardManager rewardManager = IRewardManager(address(feeManager.i_rewardManager()));
 
         address feeTokenAddress = feeManager.i_linkAddress();
 
@@ -149,7 +151,8 @@ contract StreamsUpkeep is ILogAutomation, StreamsLookupCompatibleInterface {
         // Approve rewardManager to spend this contract's balance in fees
         IERC20(feeTokenAddress).approve(address(rewardManager), fee.amount);
 
-        // Verify the report
+        // REAL WORK.
+        // Verify the report here. 
         bytes memory verifiedReportData = VERIFIER.verify(unverifiedReport, abi.encode(feeTokenAddress));
 
         // Decode verified report data into the appropriate Report struct based on reportVersion
@@ -159,12 +162,10 @@ contract StreamsUpkeep is ILogAutomation, StreamsLookupCompatibleInterface {
 
             // Store the price from the report
             lastDecodedPrice = verifiedReport.price;
+
         } else if (reportVersion == 4) {
             // v4 report schema
-            ReportV4 memory verifiedReport = abi.decode(
-                verifiedReportData,
-                (ReportV4)
-            );
+            ReportV4 memory verifiedReport = abi.decode(verifiedReportData, (ReportV4));
 
             // Store the price from the report
             lastDecodedPrice = verifiedReport.price;
