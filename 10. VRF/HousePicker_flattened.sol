@@ -447,9 +447,12 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
 // File: contracts/HousePicker.sol
 
 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-
+// VRF Subsicription id with the (buggy code consumer added): 30903568979418860979920014694491346198374130777256264316737018910505528421017
+// Deployed (buggy code) on Sepolia: 0x32b8bc29f603df641AA5D8B7d20E9784a00669cC
+// Deployed (fixed code) on Sepolia: 0x6180F16b6BfdEF91C1F83bF07329a2e1C2746db5
 
 /**
  * @notice A Chainlink VRF consumer which uses randomness to mimic the rolling
@@ -462,7 +465,9 @@ pragma solidity ^0.8.26;
  */
 
 contract HousePicker is VRFConsumerBaseV2Plus {
-    uint256 private constant ROLL_IN_PROGRESS = 4; // value out of range of houses
+
+    // uint256 private constant ROLL_IN_PROGRESS = 4; // value out of range of houses
+    uint256 private constant ROLL_IN_PROGRESS = 5; // value out of range of houses, FIXED.
 
     // Your subscription ID.
     uint256 public s_subscriptionId;
@@ -492,12 +497,16 @@ contract HousePicker is VRFConsumerBaseV2Plus {
     // Cannot exceed VRFCoordinatorV2_5.MAX_NUM_WORDS.
     uint32 public numWords = 1;
 
-    // map rollers to requestIds
+    // Maps VRF request IDs to user addresses (rollers)
     mapping(uint256 => address) private s_rollers;
-    // map vrf results to rollers
+
+    // Maps user addresses (rollers) to their random result (Hogwarts house ID)
     mapping(address => uint256) private s_results;
 
+    // DiceRolled: Emitted when randomness is requested
     event DiceRolled(uint256 indexed requestId, address indexed roller);
+
+    // DiceLanded: Emitted when randomness is received
     event DiceLanded(uint256 indexed requestId, uint256 indexed result);
 
     /**
@@ -519,6 +528,7 @@ contract HousePicker is VRFConsumerBaseV2Plus {
      */
     function rollDice() public returns (uint256 requestId) {
         require(s_results[msg.sender] == 0, "Already rolled");
+
         // Will revert if subscription is not set and funded.
         requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
@@ -552,13 +562,13 @@ contract HousePicker is VRFConsumerBaseV2Plus {
      * @param requestId uint256
      * @param randomWords  uint256[] The random result returned by the oracle.
      */
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] calldata randomWords
-    ) internal override {
-        uint256 d6Value = (randomWords[0] % 4); // plus one since the range of % n = 0 - (n-1) 
-        s_results[s_rollers[requestId]] = d6Value;
-        emit DiceLanded(requestId, d6Value);
+    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+        // uint256 houseValue = (randomWords[0] % 4); // plus one since the range of % n = 0 - (n-1) 
+        uint256 houseValue = (randomWords[0] % 4) + 1; // plus one since the range of % n = 0 - (n-1) , FIXED.
+
+        s_results[s_rollers[requestId]] = houseValue;
+
+        emit DiceLanded(requestId, houseValue);
     }
 
     /**
@@ -568,8 +578,11 @@ contract HousePicker is VRFConsumerBaseV2Plus {
      */
     function house(address player) public view returns (string memory) {
         require(s_results[player] != 0, "Dice not rolled");
+
         require(s_results[player] != ROLL_IN_PROGRESS, "Roll in progress");
-        return _getHouseName(s_results[player]);
+
+        // return _getHouseName(s_results[player]);
+        return _getHouseName(s_results[player] - 1);    // FIXED.
     }
 
     /**
@@ -579,11 +592,12 @@ contract HousePicker is VRFConsumerBaseV2Plus {
      */
     function _getHouseName(uint256 id) private pure returns (string memory) {
         string[4] memory houseNames = [
-            "Gryffindor", // id = 0
-            "Hufflepuff", // id = 1
-            "Slytherin", // id = 2
-            "Ravenclaw" // id = 3
+            "Gryffindor",   
+            "Hufflepuff",   
+            "Slytherin",    
+            "Ravenclaw"     
         ];
+
         return houseNames[id];
     }
 }
